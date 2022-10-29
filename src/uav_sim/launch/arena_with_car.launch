@@ -1,0 +1,50 @@
+<launch>
+    <arg name="robot_name" value="AKM_1"/>
+    <arg name="world_name" value="$(find uav_sim)/world/car_arena1.world"/>
+    <arg name="paused" default="false"/>
+    <arg name="use_sim_time" default="true"/>
+    <arg name="gui" default="true"/>
+    <arg name="headless" default="false"/>
+    <arg name="debug" default="false"/>
+    <arg name="x_pos" default="4"/>
+    <arg name="y_pos" default="1"/>
+    <arg name="z_pos" default="0"/>
+    <arg name="yaw_pos" default="1.5707963267948966"/>
+    <arg name="visualization" default="false"/>
+    <arg name="uav_x" default="1" />
+    <arg name="uav_y" default="1" />
+    <arg name="uav_z" default="0.1" />
+    <arg name="uav_R" default="0" />
+    <arg name="uav_P" default="0" />
+    <arg name="uav_Y" default="1.5707963267948966" />
+
+    <!-- 启动controller.py -->
+        
+    <include file="$(find uav_sim)/launch/tello.launch">
+        <arg name="visualization" value="$(arg visualization)" />
+        <arg name="gui" value="$(arg gui)" />
+        <arg name="x" value="$(arg uav_x)"/>
+        <arg name="y" value="$(arg uav_y)"/>
+        <arg name="z" value="$(arg uav_z)"/>
+        <arg name="R" value="$(arg uav_R)"/>
+        <arg name="P" value="$(arg uav_P)"/>
+        <arg name="Y" value="$(arg uav_Y)"/>
+        <arg name="world" value="$(arg world_name)"/>
+    </include>
+
+    <group ns="$(arg robot_name)">
+        <param name="robot_description" command="$(find xacro)/xacro --inorder '$(find racebot_description)/urdf/mini_akm/mini_akm.xacro'"/>
+        <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
+                args="-urdf -model $(arg robot_name) -param robot_description -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -Y $(arg yaw_pos)"/> 
+        <include file="$(find racebot_control)/launch/racebot_control.launch">
+                <arg name="robot_name" value="$(arg robot_name)"/>
+        </include>
+    </group>
+    <!-- <node name="rviz" pkg="rviz" type="rviz"  args="-d $(find racebot_gazebo)/rviz/racebot.rviz">
+        <remap from="/move_base_simple/goal" to="/$(arg robot_name)/move_base_simple/goal"/>
+        <remap from="/initialpose" to="/$(arg robot_name)/initialpose"/>
+        <remap from="/clicked_point" to="/$(arg robot_name)/clicked_point"/>
+    </node> -->
+    <node pkg="racebot_control" type="cross_demo.py" name="cross" output="screen"> </node>
+    <node pkg="uav_sim" type="controller.py" name="takeoff" output="screen"> </node>
+</launch>
