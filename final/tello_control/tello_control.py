@@ -104,7 +104,6 @@ class info_updater():
         num += 1
         # print(img)
 
-
 # put string into dict, easy to find
 def parse_state():
     global tello_state, tello_state_lock
@@ -167,6 +166,10 @@ class task_handle():
         JUDGING = 7
 
     def __init__(self , ctrl):
+        rospy.Subscriber("car_image", Image, self.rec_car_image)
+        self.car_image_li = []
+        self.car_image_lock = threading.Lock()
+
         self.States_Dict = None
         self.ctrl = ctrl
         self.flight_state_ = self.FlightState.WAITING
@@ -177,14 +180,17 @@ class task_handle():
         )
 
         self.judging_queue = deque([
-            deque([['yaw', 0], ['y', 150], ['z', 160], ['yaw', 90]]),
+            deque([['yaw', 0], ['y', 76], ['z', 130], ['yaw', -90]]),
+            deque([['z', 45]]),
+            deque([['yaw', 0], ['y', 150], ['x', 80], ['z', 160], ['yaw', 90]]),
+            deque([['z', 45]]),
             deque([['yaw', 0], ['y', 200], ['x', -10]]),
         ])
         self.now_stage = self.taskstages.finding_location
         self.img_num = 0
         self.yaw_times = 2
 
-        self.takeoff_recog = True
+        self.takeoff_recog = 0
 
         # self.cfg = '/home/thudrone/final_catkin_ws/src/tello_control/yolov3_detect/cfg/yolov3.cfg'
         # self.data = '/home/thudrone/final_catkin_ws/src/tello_control/yolov3_detect/data/ball.data'
@@ -198,6 +204,12 @@ class task_handle():
         # self.save_path='/home/thudrone/final_catkin_ws/src/tello_control/yolov3_detect/data/output/result.jpg'
 
         self.model, self.device = load_weight() 
+
+    def rec_car_image(self, data):
+        self.car_image_lock.acquire()
+        car_img_temp = CvBridge().imgmsg_to_cv2(data, desired_encoding = "passthrough")
+        self.car_image_lock.release()
+        self.car_image_li.append(car_img_temp)
 
     def switchNavigatingState(self):
         if len(self.navigating_queue_) == 0:
@@ -215,7 +227,7 @@ class task_handle():
         if self.flight_state_ == self.FlightState.WAITING: 
             print('State: WAITING')
             # self.ctrl.takeoff()
-            self.navigating_queue_ = deque([['z', 161], ['y', -195], ['x', 0]])
+            self.navigating_queue_ = deque([['z', 161], ['y', -200], ['x', -0]])
             self.adj_yaw = self.States_Dict['yaw']
             self.switchNavigatingState()
             self.save_img = True
@@ -275,8 +287,37 @@ class task_handle():
             if len(self.judging_queue) == 0:
                 self.next_state_ = self.FlightState.LANDING
                 self.switchNavigatingState()
-            elif self.takeoff_recog:
-                self.takeoff_recog = False
+            elif self.takeoff_recog == 0:
+                self.img_num += 1
+                path = '/home/thudrone/final_catkin_ws/src/tello_control/' + str(self.img_num) + '.jpg'
+                img_lock.acquire() # thread locker
+                img_now = deepcopy(img)
+                img_lock.release()
+                cv2.imwrite(path, img_now)
+                red_pos = self.image_recognition(img_now)
+                if red_pos == -1:
+                    self.takeoff_recog = 1
+                    self.navigating_queue_ =  deque([['x', -110], ['y', -200]])
+                    self.next_state_ = self.FlightState.JUDGING
+                    self.switchNavigatingState()
+                else:
+                    print("red_pos==========================================")
+                    print(red_pos)
+                    if red_pos == 1:
+                        self.navigating_queue_ = deque([['z', 100], ['x', -28], ['z', 185], ['y', -35],  ['x', 95], ['yaw', -179]])
+                    elif red_pos == 2:
+                        self.navigating_queue_ = deque([['z', 100], ['x', 25], ['z', 185], ['y', -35], ['x', 95], ['yaw', -179]])
+                    elif red_pos == 3:
+                        self.navigating_queue_ = deque([['z', 100], ['x', -28], ['z', 143], ['y', -35], ['x', 95], ['yaw', -179]])
+                    elif red_pos == 4:
+                        self.navigating_queue_ = deque([['z', 100], ['x', 25], ['z', 143], ['y', -35], ['x', 95], ['yaw', -179]])
+                    else:
+                        self.navigating_queue_ = deque([['z', 100], ['x', -28], ['z', 143], ['y', -35], ['x', 95], ['yaw', -179]])
+                    self.takeoff_recog = 1000
+                    self.next_state_ = self.FlightState.JUDGING
+                    self.switchNavigatingState()
+            elif self.takeoff_recog == 1:
+                self.takeoff_recog += 1
                 self.img_num += 1
                 path = '/home/thudrone/final_catkin_ws/src/tello_control/' + str(self.img_num) + '.jpg'
                 img_lock.acquire() # thread locker
@@ -287,15 +328,16 @@ class task_handle():
                 print("red_pos==========================================")
                 print(red_pos)
                 if red_pos == 1:
-                    self.navigating_queue_ = deque([['z', 90], ['x', -28], ['z', 185], ['y', -25],  ['x', 95], ['y', 76], ['z', 130], ['yaw', -90]])
+                    self.navigating_queue_ = deque([['z', 100], ['x', -125], ['z', 185], ['y', -35],  ['x', 95], ['yaw', -179]])
                 elif red_pos == 2:
-                    self.navigating_queue_ = deque([['z', 90], ['x', 25], ['z', 185], ['y', -25], ['x', 95], ['y', 76], ['z', 130], ['yaw', -90]])
+                    self.navigating_queue_ = deque([['z', 100], ['x', -75], ['z', 185], ['y', -35], ['x', 95], ['yaw', -179]])
                 elif red_pos == 3:
-                    self.navigating_queue_ = deque([['z', 90], ['x', -28], ['z', 143], ['y', -25], ['x', 95], ['y', 76], ['z', 130], ['yaw', -90]])
+                    self.navigating_queue_ = deque([['z', 100], ['x', -125], ['z', 143], ['y', -35], ['x', 95], ['yaw', -179]])
                 elif red_pos == 4:
-                    self.navigating_queue_ = deque([['z', 90], ['x', 25], ['z', 143], ['y', -25], ['x', 95], ['y', 76], ['z', 130], ['yaw', -90]])
+                    self.navigating_queue_ = deque([['z', 100], ['x', -75], ['z', 143], ['y', -35], ['x', 95], ['yaw', -179]])
                 else:
-                    self.navigating_queue_ = deque([['z', 90], ['x', -28], ['z', 143], ['y', -25], ['x', 95], ['y', 76], ['z', 130], ['yaw', -90]])
+                    self.navigating_queue_ = deque([['z', 100], ['x', -125], ['z', 143], ['y', -35], ['x', 95], ['yaw', -179]])
+                self.takeoff_recog = 1000
                 self.next_state_ = self.FlightState.JUDGING
                 self.switchNavigatingState()
             else:
@@ -427,7 +469,7 @@ class task_handle():
         red_closed = cv2.morphologyEx(red_opened, cv2.MORPH_CLOSE,
                                     np.ones((3, 3), np.uint8))  # 闭运算
         red_closed[((redpoint_img[:, :, 0] < 35) & (redpoint_img[:, :, 1] < 35) &
-                    (redpoint_img[:, :, 2] > 100))] = 255  # modified red_closed with RGB
+                    (redpoint_img[:, :, 2] > 80))] = 255  # modified red_closed with RGB
         (red_contours, _) = cv2.findContours(red_closed, cv2.RETR_EXTERNAL,
                                             cv2.CHAIN_APPROX_NONE)  # 找出轮廓
         red_pos = [
@@ -436,7 +478,10 @@ class task_handle():
             np.sum(red_closed[int(height / 2):, :int(width / 2)] == 255),
             np.sum(red_closed[int(height / 2):, int(width / 2):] == 255)
         ]
-        return np.argmax(red_pos) + 1
+        if max(red_pos) > height * width / 300:
+            return np.argmax(red_pos) + 1
+        else:
+            return -1
 
 
 if __name__ == '__main__':
