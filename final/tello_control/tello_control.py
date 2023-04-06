@@ -180,11 +180,11 @@ class task_handle():
         )
 
         self.judging_queue = deque([
-            deque([['yaw', 0], ['y', 76], ['z', 130], ['yaw', -90]]),
-            deque([['z', 35]]),
-            deque([['yaw', 0], ['y', 150], ['x', 80], ['z', 160], ['yaw', 90]]),
-            deque([['z', 35]]),
-            deque([['yaw', 0], ['y', 200], ['x', -10]]),
+            deque([['yaw', 0], ['x', 95], ['yaw', -179]]),
+            deque([['yaw', 0], ['y', 57], ['z', 130], ['yaw', -90]]),
+            deque([['z', 40]]),
+            deque([['yaw', 0], ['z', 160], ['y', 137], ['x', 65], ['yaw', 90]]),
+            deque([['yaw', 0], ['y', 205], ['x', -10]]),
         ])
         self.now_stage = self.taskstages.finding_location
         self.img_num = 0
@@ -192,7 +192,7 @@ class task_handle():
 
         self.takeoff_recog = 0
         self.ball_result = ['e', 'e', 'e', 'e', 'e']
-        self.recog_ball_idx = [x - 1 for x in [1, 3, 3, 4, 4]]
+        self.recog_ball_idx = [x - 1 for x in [2, 1, 3, 3, 4]]
         self.recog_idx_now = 0
 
         # self.cfg = '/home/thudrone/final_catkin_ws/src/tello_control/yolov3_detect/cfg/yolov3.cfg'
@@ -207,12 +207,14 @@ class task_handle():
         # self.save_path='/home/thudrone/final_catkin_ws/src/tello_control/yolov3_detect/data/output/result.jpg'
 
         self.model, self.device = load_weight() 
+        self.jump = True
 
     def rec_car_image(self, data):
         self.car_image_lock.acquire()
         car_img_temp = CvBridge().imgmsg_to_cv2(data, desired_encoding = "passthrough")
         self.car_image_lock.release()
         self.car_image_li.append(car_img_temp)
+        print("Receive Car Image")
 
     def switchNavigatingState(self):
         if len(self.navigating_queue_) == 0:
@@ -230,7 +232,11 @@ class task_handle():
         if self.flight_state_ == self.FlightState.WAITING: 
             print('State: WAITING')
             # self.ctrl.takeoff()
-            self.navigating_queue_ = deque([['y', -214], ['x', 0], ['z', 161]])
+            if self.jump:
+                self.takeoff_recog = 1000
+                self.navigating_queue_ = deque([['z', 235], ['y', -38],  ['yaw', -90], ['z', 140]])
+            else:
+                self.navigating_queue_ = deque([['y', -214], ['x', 0], ['z', 161]])
             self.adj_yaw = self.States_Dict['yaw']
             self.switchNavigatingState()
             self.save_img = True
@@ -312,15 +318,15 @@ class task_handle():
                     print("red_pos==========================================")
                     print(red_pos)
                     if red_pos == 1:
-                        self.navigating_queue_ = deque([['z', 120], ['x', -27], ['z', 185], ['y', -35],  ['x', 95], ['yaw', -179], ['z', 140]])
+                        self.navigating_queue_ = deque([['z', 120], ['x', -27], ['z', 185], ['y', -20],  ['x', 95], ['yaw', -179], ['z', 140]])
                     elif red_pos == 2:
-                        self.navigating_queue_ = deque([['z', 120], ['x', 20], ['z', 185], ['y', -35], ['x', 95], ['yaw', -179], ['z', 140]])
+                        self.navigating_queue_ = deque([['z', 120], ['x', 20], ['z', 185], ['y', -20], ['x', 95], ['yaw', -179], ['z', 140]])
                     elif red_pos == 3:
-                        self.navigating_queue_ = deque([['z', 100], ['x', -27], ['z', 143], ['y', -35], ['x', 95], ['yaw', -179], ['z', 140]])
+                        self.navigating_queue_ = deque([['z', 100], ['x', -27], ['z', 143], ['y', -20], ['x', 95], ['yaw', -179], ['z', 140]])
                     elif red_pos == 4:
-                        self.navigating_queue_ = deque([['z', 100], ['x', 20], ['z', 143], ['y', -35], ['x', 95], ['yaw', -179], ['z', 140]])
+                        self.navigating_queue_ = deque([['z', 100], ['x', 20], ['z', 143], ['y', -20], ['x', 95], ['yaw', -179], ['z', 140]])
                     else:
-                        self.navigating_queue_ = deque([['z', 100], ['x', -27], ['z', 143], ['y', -35], ['x', 95], ['yaw', -179], ['z', 140]])
+                        self.navigating_queue_ = deque([['z', 100], ['x', -27], ['z', 143], ['y', -20], ['x', 95], ['yaw', -179], ['z', 140]])
                     self.takeoff_recog = 1000
                     self.next_state_ = self.FlightState.JUDGING
                     self.switchNavigatingState()
@@ -336,15 +342,15 @@ class task_handle():
                 print("red_pos==========================================")
                 print(red_pos)
                 if red_pos == 1:
-                    self.navigating_queue_ = deque([['z', 120], ['x', -125], ['z', 185], ['y', -35],  ['x', 95], ['yaw', -179], ['z', 140]])
+                    self.navigating_queue_ = deque([['z', 120], ['x', -125], ['z', 185], ['y', -20],  ['x', 95], ['yaw', -179], ['z', 140]])
                 elif red_pos == 2:
-                    self.navigating_queue_ = deque([['z', 120], ['x', -75], ['z', 185], ['y', -35], ['x', 95], ['yaw', -179], ['z', 140]])
+                    self.navigating_queue_ = deque([['z', 120], ['x', -75], ['z', 185], ['y', -20], ['x', 95], ['yaw', -179], ['z', 140]])
                 elif red_pos == 3:
-                    self.navigating_queue_ = deque([['z', 100], ['x', -125], ['z', 143], ['y', -35], ['x', 95], ['yaw', -179], ['z', 140]])
+                    self.navigating_queue_ = deque([['z', 100], ['x', -125], ['z', 143], ['y', -20], ['x', 95], ['yaw', -179], ['z', 140]])
                 elif red_pos == 4:
-                    self.navigating_queue_ = deque([['z', 100], ['x', -75], ['z', 143], ['y', -35], ['x', 95], ['yaw', -179], ['z', 140]])
+                    self.navigating_queue_ = deque([['z', 100], ['x', -75], ['z', 143], ['y', -20], ['x', 95], ['yaw', -179], ['z', 140]])
                 else:
-                    self.navigating_queue_ = deque([['z', 100], ['x', -125], ['z', 143], ['y', -35], ['x', 95], ['yaw', -179], ['z', 140]])
+                    self.navigating_queue_ = deque([['z', 100], ['x', -125], ['z', 143], ['y', -20], ['x', 95], ['yaw', -179], ['z', 140]])
                 self.takeoff_recog = 1000
                 self.next_state_ = self.FlightState.JUDGING
                 self.switchNavigatingState()
@@ -358,7 +364,7 @@ class task_handle():
                 # TODO
                 result = detect_ball(self.model, self.device, img_now)
                 reg_type = -1
-                if torch.is_tensor(result):
+                if torch.is_tensor(result) and result.shape[1] ==7:
                     index = torch.argmax(result[:, 4])
                     reg_type = int(result[index, 6].item())
                 else:
@@ -389,19 +395,23 @@ class task_handle():
             pass
 
     def final_reg(self):
-        car_images_idx = [x - 1 for x in [4, 2, 1]]
-        for x in car_images_idx:
-            car_image = self.car_image_li[x]
-            result = detect_ball(self.model, self.device, car_image)
-            reg_type = -1
-            if torch.is_tensor(result):
-                index = torch.argmax(result[:, 4])
-                reg_type = int(result[index, 6].item())
-            else:
+        try:
+            car_images_idx = [x - 1 for x in [2, 4, 1]]
+            for x in car_images_idx:
+                car_image = self.car_image_li[x]
+                result = detect_ball(self.model, self.device, car_image)
                 reg_type = -1
-            print(reg_type)
-            if reg_type != -1 and self.ball_result[x] != 'e':
-                self.ball_result[x] = 'b' if reg_type == 0 else ('f' if reg_type == 1 else 'v' if reg_type == 2 else 'e')
+                if torch.is_tensor(result) and result.shape[1] ==7:
+                    index = torch.argmax(result[:, 4])
+                    reg_type = int(result[index, 6].item())
+                else:
+                    reg_type = -1
+                print(reg_type)
+                if reg_type != -1 and self.ball_result[x] != 'e':
+                    self.ball_result[x] = 'b' if reg_type == 0 else ('f' if reg_type == 1 else 'v' if reg_type == 2 else 'e')
+        except:
+            print("final reg error")
+            pass
         if 'b' not in self.ball_result:
             self.ball_result[4] = 'b'
         if 'f' not in self.ball_result:
