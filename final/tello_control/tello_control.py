@@ -8,7 +8,7 @@ import random
 import numpy as np
 from collections import deque
 import rospy
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image
 # if you can not find cv2 in your python, you can try this. usually happen when you use conda.
@@ -17,6 +17,7 @@ import cv2
 import tello_base as tello
 from enum import Enum
 from yolov3_detect.detect import load_weight, detect_ball
+from yolov3_detect.ball_detect import detect_ball_huff
 from copy import deepcopy
 import torch
 
@@ -170,6 +171,12 @@ class task_handle():
         self.car_image_li = []
         self.car_image_lock = threading.Lock()
 
+        rospy.Subscriber('/cmd_start', Bool, self.ready_start)
+        self.start = False
+
+        self.finish_publish = rospy.Publisher('/finish_drone', Bool, queue_size=100)
+        self.final_reg_results = rospy.Publisher('/target_result', String, queue_size=100)
+
         self.States_Dict = None
         self.ctrl = ctrl
         self.flight_state_ = self.FlightState.WAITING
@@ -182,7 +189,6 @@ class task_handle():
         self.judging_queue = deque([
             deque([['yaw', 0], ['x', 95], ['yaw', -179]]),
             deque([['yaw', 0], ['y', 57], ['z', 130], ['yaw', -90]]),
-            deque([['z', 40]]),
             deque([['yaw', 0], ['z', 160], ['y', 137], ['x', 65], ['yaw', 90]]),
             deque([['yaw', 0], ['y', 205], ['x', -10]]),
         ])
@@ -192,7 +198,7 @@ class task_handle():
 
         self.takeoff_recog = 0
         self.ball_result = ['e', 'e', 'e', 'e', 'e']
-        self.recog_ball_idx = [x - 1 for x in [2, 1, 3, 3, 4]]
+        self.recog_ball_idx = [x - 1 for x in [2, 1, 3, 4]]
         self.recog_idx_now = 0
 
         # self.cfg = '/home/thudrone/final_catkin_ws/src/tello_control/yolov3_detect/cfg/yolov3.cfg'
@@ -215,6 +221,11 @@ class task_handle():
         self.car_image_lock.release()
         self.car_image_li.append(car_img_temp)
         print("Receive Car Image")
+    
+    def ready_start(self, data):
+        self.start = data.data
+        if self.start:
+            print("Start")
 
     def switchNavigatingState(self):
         if len(self.navigating_queue_) == 0:
@@ -389,14 +400,23 @@ class task_handle():
                 cv2.imwrite(path, img)
                 img_lock.release()
                 self.save_img = False
-            self.ctrl.land()
             self.final_reg()
+            final_result = self.ball_result
+            final_result_str = String()
+            final_result_str.data = ''.join(final_result)
+            self.final_reg_results.publish(final_result_str)
+            print(final_result_str.data)
+            
+            finish = Bool()
+            finish.data = True
+            self.finish_publish.publish(finish)
+            print("finish")
         else:
             pass
 
     def final_reg(self):
         try:
-            car_images_idx = [x - 1 for x in [2, 4, 1]]
+            car_images_idx = [x - 1 for x in [2, 3, 4, 1]]
             for x in car_images_idx:
                 car_image = self.car_image_li[x]
                 result = detect_ball(self.model, self.device, car_image)
@@ -538,7 +558,10 @@ if __name__ == '__main__':
     infouper = info_updater()
     tasker = task_handle(ctrl)
 
-    time.sleep(5.2)
+    print("ready to start")
+    while tasker.start == False:
+        pass
+    time.sleep(4)
     ctrl.takeoff( )
     time.sleep(4)
     ctrl.up(60)
